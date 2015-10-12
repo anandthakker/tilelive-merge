@@ -3,6 +3,7 @@
 var url = require('url')
 var zlib = require('zlib')
 
+var uniq = require('uniq')
 var async = require('async')
 var mapnik = require('mapnik')
 
@@ -62,11 +63,8 @@ module.exports = function (tilelive, options) {
       var _x = x
       var _y = y
 
-      // overzooming support
       if (_z > src.info.maxzoom) {
-        _z = src.info.maxzoom
-        _x = Math.floor(x / Math.pow(2, z - _z))
-        _y = Math.floor(y / Math.pow(2, z - _z))
+        return callback(null, null, null)
       }
 
       var getTile = function (_z, _x, _y, callback) {
@@ -118,21 +116,13 @@ module.exports = function (tilelive, options) {
             return next(null, null, null)
           }
 
-          var vt = new mapnik.VectorTile(_z, _x, _y)
-
           if (headers['content-type'] === 'application/x-protobuf') {
+            var vt = new mapnik.VectorTile(_z, _x, _y)
             vt.setData(buf)
             return next(null, vt, headers)
           }
 
-          return mapnik.Image.fromBytes(buf, function (err, im) {
-            if (err) {
-              return next(err)
-            }
-
-            vt.addImage(im.encodeSync('webp'), src.info.id.replace(/\./g, '_'))
-            return next(null, vt, headers)
-          })
+          return next(null, null, null)
         }
       ], function (err, tile, headers) {
         if (err) {
@@ -255,7 +245,8 @@ module.exports = function (tilelive, options) {
         info.private = a.private || b.private
         info.scheme = a.scheme
         info.tilejson = a.tilejson
-        info.vector_layers = (a.vector_layers || [{ fields: {}, id: a.id.replace(/\./g, '_') }]).concat(b.vector_layers || [{ fields: {}, id: b.id.replace(/\./g, '_') }])
+        info.vector_layers = uniq((a.vector_layers || [{ fields: {}, id: a.id.replace(/\./g, '_') }]).concat(b.vector_layers || [{ fields: {}, id: b.id.replace(/\./g, '_') }]),
+        function (l1, l2) { return l1.id === l2.id ? 0 : 1 })
         info.id = [a.id, b.id].join(',')
 
         return info
