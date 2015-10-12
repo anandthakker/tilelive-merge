@@ -169,15 +169,22 @@ module.exports = function (tilelive, options) {
         var layers = {}
         tiles.forEach(function (vt) {
           vt.names().forEach(function (layer) {
-            var features = JSON.parse(vt.toGeoJSON(layer)).features
-            layers[layer] = (layers[layer] || []).concat(features)
+            if (!layers[layer]) {
+              layers[layer] = []
+            }
+            var fc = vt.toGeoJSON(layer)
+            var features = fc.slice(fc.indexOf('[') + 1, fc.lastIndexOf(']'))
+            if (features && features.trim().length) {
+              layers[layer].push(features)
+            }
           })
         })
         for (var layer in layers) {
-          var geojson = JSON.stringify({
-            type: 'FeatureCollection',
-            features: layers[layer]
-          })
+          var geojson = [
+            '{ "type": "FeatureCollection", "features": [',
+            layers[layer].join(','),
+            '] }'
+          ].join('\n')
           vtile.addGeoJSON(geojson, layer)
         }
       } catch (err) {
